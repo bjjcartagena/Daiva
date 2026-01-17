@@ -1,1 +1,593 @@
-<!doctype html><html><body>OK</body></html>
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Flashcards – Renacimiento</title>
+  <style>
+    :root{
+      --bg:#f7f7fb;
+      --card:#ffffff;
+      --text:#111827;
+      --muted:#6b7280;
+      --border:rgba(17,24,39,.12);
+      --shadow: 0 12px 30px rgba(17,24,39,.10);
+      --green:#16a34a;
+      --red:#dc2626;
+      --track: rgba(17,24,39,.08);
+      --focus:rgba(109,40,217,.35);
+      --btnBg: rgba(255,255,255,.65);
+    }
+    [data-theme="dark"]{
+      --bg:#0b1020;
+      --card:#0f172a;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --border:rgba(229,231,235,.12);
+      --shadow: 0 14px 34px rgba(0,0,0,.45);
+      --track: rgba(255,255,255,.08);
+      --focus:rgba(167,139,250,.35);
+      --btnBg: rgba(255,255,255,.06);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .wrap{
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 14px 14px 22px;
+      padding-bottom: calc(22px + env(safe-area-inset-bottom));
+    }
+
+    /* Top bar (sin texto) */
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom: 10px;
+    }
+    .brand{
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--btnBg);
+      display:grid;
+      place-items:center;
+      box-shadow: 0 1px 0 rgba(17,24,39,.05);
+      user-select:none;
+    }
+    .iconBtns{display:flex; gap:10px; align-items:center;}
+    .iconBtn{
+      width: 44px; height: 44px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--btnBg);
+      color: var(--text);
+      cursor:pointer;
+      box-shadow: 0 1px 0 rgba(17,24,39,.05);
+      display:grid;
+      place-items:center;
+      font-size: 18px;
+      font-weight: 900;
+      user-select:none;
+      touch-action: manipulation;
+    }
+    .iconBtn:focus{outline:none; box-shadow: 0 0 0 4px var(--focus);}
+
+    /* Barra única de progreso (verde/rojo/resto) */
+    .progressWrap{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 10px 12px;
+      box-shadow: var(--shadow);
+      margin-bottom: 12px;
+    }
+    .progressTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom: 8px;
+      font-weight: 900;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .progressTop b{color: var(--text); font-weight: 1100;}
+    .bar{
+      height: 12px;
+      border-radius: 999px;
+      overflow:hidden;
+      background: var(--track);
+      border: 1px solid var(--border);
+      display:flex;
+    }
+    .seg{height:100%}
+    .seg.ok{background: linear-gradient(180deg, rgba(22,163,74,1), rgba(21,128,61,1));}
+    .seg.no{background: linear-gradient(180deg, rgba(220,38,38,1), rgba(185,28,28,1));}
+    .seg.rest{background: rgba(255,255,255,0);}
+
+    /* Card */
+    .cardShell{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 12px;
+      box-shadow: var(--shadow);
+    }
+    .hint{
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 1000;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin-bottom: 10px;
+    }
+    .hint b{color:var(--text)}
+    .chip{
+      border: 1px solid var(--border);
+      background: rgba(109,40,217,.10);
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-weight: 1100;
+      color: var(--text);
+      font-size: 12px;
+      white-space:nowrap;
+    }
+    [data-theme="dark"] .chip{background: rgba(167,139,250,.12)}
+
+    /* FLIP sin espejo: animación 0→90, swap, -90→0 */
+    .flip{
+      perspective: 1200px;
+      width:100%;
+      aspect-ratio: 4/5;
+      max-height: 70vh;
+      margin: 0 auto;
+      border-radius: 18px;
+      overflow:hidden;
+      border: 1px solid var(--border);
+      background: var(--card);
+    }
+    .flipInner{
+      width:100%;
+      height:100%;
+      transform-style: preserve-3d;
+      transform: rotateY(var(--ang, 0deg));
+      transition: transform 220ms cubic-bezier(.2,.8,.2,1);
+      will-change: transform;
+    }
+    .flipInner.noTrans{transition:none !important;}
+
+    .panel{
+      width:100%;
+      height:100%;
+      display:none;
+      cursor:pointer;
+      user-select:none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .flip[data-side="front"] .panel.front{display:block;}
+    .flip[data-side="back"]  .panel.back{display:flex;}
+
+    /* Front: imagen */
+    .front .art{
+      width:100%;
+      height:100%;
+      position:relative;
+      background:#111827;
+    }
+    .front img{
+      width:100%;
+      height:100%;
+      object-fit: contain;
+      display:block;
+      background:#111827;
+    }
+    .tapOverlay{
+      position:absolute;
+      left:12px; right:12px; bottom:12px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(0,0,0,.48);
+      color: #fff;
+      font-weight: 1100;
+      font-size: 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    /* Back: SOLO AUTOR, fondo blanco */
+    .back{
+      align-items:center;
+      justify-content:center;
+      flex-direction:column;
+      text-align:center;
+      gap: 10px;
+      padding: 18px;
+      background: #ffffff;
+      color: #111827;
+    }
+    [data-theme="dark"] .back{
+      background: #ffffff;   /* lo quieres blanco igualmente */
+      color: #111827;
+    }
+    .author{
+      font-size: 28px;
+      font-weight: 1100;
+      letter-spacing:-0.02em;
+      line-height:1.12;
+    }
+    .tiny{
+      font-size: 12px;
+      font-weight: 900;
+      opacity: .7;
+    }
+
+    .controls{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .btn{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      padding: 14px 12px;
+      border-radius: 16px;
+      border: 0;
+      color: #fff;
+      font-weight: 1100;
+      font-size: 15px;
+      box-shadow: var(--shadow);
+      cursor:pointer;
+      user-select:none;
+      touch-action: manipulation;
+    }
+    .ok{ background: linear-gradient(180deg, rgba(22,163,74,1), rgba(21,128,61,1)); }
+    .no{ background: linear-gradient(180deg, rgba(220,38,38,1), rgba(185,28,28,1)); }
+    .btn:active{ transform: translateY(1px); }
+
+    .footerRow{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-weight: 900;
+      font-size: 12px;
+    }
+
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: calc(16px + env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      background: rgba(17,24,39,.92);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 999px;
+      font-weight: 900;
+      font-size: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease;
+      max-width: calc(100vw - 24px);
+      text-align:center;
+    }
+    .toast.show{opacity:1}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <div class="topbar">
+      <div class="brand" aria-hidden="true">🎨</div>
+      <div class="iconBtns">
+        <button class="iconBtn" id="btnTheme" type="button" aria-label="Cambiar modo">🌙</button>
+        <button class="iconBtn" id="btnShuffle" type="button" aria-label="Barajar">🔀</button>
+        <button class="iconBtn" id="btnReset" type="button" aria-label="Reiniciar">↺</button>
+      </div>
+    </div>
+
+    <div class="progressWrap" aria-label="Progreso">
+      <div class="progressTop">
+        <div><b id="answeredText">0</b>/<b id="totalText">0</b></div>
+        <div>👍 <b id="okText">0</b> · 👎 <b id="noText">0</b></div>
+      </div>
+      <div class="bar" aria-hidden="true">
+        <div class="seg ok" id="segOk" style="width:0%"></div>
+        <div class="seg no" id="segNo" style="width:0%"></div>
+        <div class="seg rest" id="segRest" style="width:100%"></div>
+      </div>
+    </div>
+
+    <section class="cardShell" aria-live="polite">
+      <div class="hint">
+        <div>Tarjeta <b id="cardIndex">1</b> de <b id="cardTotal">0</b></div>
+        <div class="chip" id="chipMeta">—</div>
+      </div>
+
+      <div class="flip" id="flip" data-side="front" role="button" tabindex="0" aria-label="Girar tarjeta">
+        <div class="flipInner" id="flipInner">
+          <!-- FRONT -->
+          <div class="panel front">
+            <div class="art">
+              <img id="artImg" alt="" />
+              <div class="tapOverlay">
+                <span>👉 Toca para ver el autor</span>
+                <span>↻</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- BACK (solo autor) -->
+          <div class="panel back">
+            <div class="author" id="author">—</div>
+            <div class="tiny">Toca para volver a la obra</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn ok" id="btnKnow" type="button">👍 La sé</button>
+        <button class="btn no" id="btnNoKnow" type="button">👎 No la sé</button>
+      </div>
+
+      <div class="footerRow">
+        <div>Consejo: si dudas, mírala 2 segundos más 😊</div>
+        <div id="deckHint">—</div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const ORIGINAL_DECK = [
+      {"id": 1, "title": "Cúpula de Santa Maria dei Fiori", "author": "Filippo Brunelleschi", "period": "Quattrocento", "discipline": "Arquitectura", "src": "img/001.png"},
+      {"id": 2, "title": "Iglesia de San Lorenzo", "author": "Filippo Brunelleschi", "period": "Quattrocento", "discipline": "Arquitectura", "src": "img/002.png"},
+      {"id": 3, "title": "Iglesia de Sta Maria Novella", "author": "Leon Battista Alberti", "period": "Quattrocento", "discipline": "Arquitectura", "src": "img/003.png"},
+      {"id": 4, "title": "Sacrificio de Isaac (Puerta del Baptisterio)", "author": "Lorenzo Ghiberti", "period": "Quattrocento", "discipline": "Escultura", "src": "img/004.png"},
+      {"id": 5, "title": "David de bronce", "author": "Donatello", "period": "Quattrocento", "discipline": "Escultura", "src": "img/005.png"},
+      {"id": 6, "title": "San Jorge", "author": "Donatello", "period": "Quattrocento", "discipline": "Escultura", "src": "img/006.png"},
+      {"id": 7, "title": "David", "author": "Andrea del Verrocchio", "period": "Quattrocento", "discipline": "Escultura", "src": "img/007.png"},
+      {"id": 8, "title": "Expulsión del paraíso", "author": "Masaccio", "period": "Quattrocento", "discipline": "Pintura", "src": "img/008.png"},
+      {"id": 9, "title": "Retrato de Federico de Montefeltro", "author": "Piero della Francesca", "period": "Quattrocento", "discipline": "Pintura", "src": "img/009.png"},
+      {"id": 10, "title": "Alegoría de la primavera", "author": "Sandro Botticelli", "period": "Quattrocento", "discipline": "Pintura", "src": "img/010.png"},
+      {"id": 11, "title": "El nacimiento de Venus", "author": "Sandro Botticelli", "period": "Quattrocento", "discipline": "Pintura", "src": "img/011.png"},
+      {"id": 12, "title": "Proyecto de Bramante para la planta de San Pedro del Vaticano", "author": "Donato Bramante", "period": "Cinquecento", "discipline": "Arquitectura", "src": "img/012.png"},
+      {"id": 13, "title": "Proyecto de Miguel Ángel para la planta de San Pedro del Vaticano", "author": "Miguel Ángel", "period": "Cinquecento", "discipline": "Arquitectura", "src": "img/013.png"},
+      {"id": 14, "title": "Cúpula de San Pedro del Vaticano", "author": "Miguel Ángel", "period": "Cinquecento", "discipline": "Arquitectura", "src": "img/014.png"},
+      {"id": 15, "title": "Pietà Vaticana", "author": "Miguel Ángel", "period": "Cinquecento", "discipline": "Escultura", "src": "img/015.png"},
+      {"id": 16, "title": "David", "author": "Miguel Ángel", "period": "Cinquecento", "discipline": "Escultura", "src": "img/016.png"},
+      {"id": 17, "title": "Moisés", "author": "Miguel Ángel", "period": "Cinquecento", "discipline": "Escultura", "src": "img/017.png"},
+      {"id": 18, "title": "Perseo con la cabeza de Medusa", "author": "Benvenuto Cellini", "period": "Cinquecento", "discipline": "Escultura", "src": "img/018.png"},
+      {"id": 19, "title": "La Virgen, Santa Ana y el Niño", "author": "Leonardo da Vinci", "period": "Cinquecento", "discipline": "Pintura", "src": "img/019.png"},
+      {"id": 20, "title": "La Última Cena", "author": "Leonardo da Vinci", "period": "Cinquecento", "discipline": "Pintura", "src": "img/020.png"},
+      {"id": 21, "title": "La Gioconda", "author": "Leonardo da Vinci", "period": "Cinquecento", "discipline": "Pintura", "src": "img/021.png"},
+      {"id": 22, "title": "Los desposorios de la Virgen", "author": "Rafael", "period": "Cinquecento", "discipline": "Pintura", "src": "img/022.png"},
+      {"id": 23, "title": "La escuela de Atenas", "author": "Rafael", "period": "Cinquecento", "discipline": "Pintura", "src": "img/023.png"},
+      {"id": 24, "title": "La creación de Adán", "author": "Miguel Ángel", "period": "Cinquecento", "discipline": "Pintura", "src": "img/024.png"},
+      {"id": 25, "title": "Bóveda de la Capilla Sixtina (La Creación)", "author": "Miguel Ángel", "period": "Cinquecento", "discipline": "Pintura", "src": "img/025.png"},
+      {"id": 26, "title": "Juicio Final (Capilla Sixtina)", "author": "Miguel Ángel", "period": "Cinquecento", "discipline": "Pintura", "src": "img/026.png"}
+    ];
+
+    let deck = [...ORIGINAL_DECK];
+    let index = 0;
+    let correct = 0;
+    let wrong = 0;
+    let answered = 0;
+
+    const el = (id) => document.getElementById(id);
+
+    const flip = el('flip');
+    const flipInner = el('flipInner');
+    const artImg = el('artImg');
+    const author = el('author');
+    const chipMeta = el('chipMeta');
+    const cardIndex = el('cardIndex');
+    const cardTotal = el('cardTotal');
+    const toast = el('toast');
+
+    const answeredText = el('answeredText');
+    const totalText = el('totalText');
+    const okText = el('okText');
+    const noText = el('noText');
+    const segOk = el('segOk');
+    const segNo = el('segNo');
+    const segRest = el('segRest');
+    const deckHint = el('deckHint');
+
+    let isAnimatingFlip = false;
+
+    function showToast(msg){
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(()=> toast.classList.remove('show'), 900);
+    }
+
+    function setSide(side){
+      flip.setAttribute('data-side', side);
+    }
+    function getSide(){
+      return flip.getAttribute('data-side') || 'front';
+    }
+
+    function current(){
+      return deck[index];
+    }
+
+    function updateProgress(){
+      const total = deck.length;
+
+      answeredText.textContent = answered;
+      totalText.textContent = total;
+      okText.textContent = correct;
+      noText.textContent = wrong;
+
+      const okP = total ? (correct / total) * 100 : 0;
+      const noP = total ? (wrong / total) * 100 : 0;
+      const restP = Math.max(0, 100 - okP - noP);
+
+      segOk.style.width = okP.toFixed(2) + "%";
+      segNo.style.width = noP.toFixed(2) + "%";
+      segRest.style.width = restP.toFixed(2) + "%";
+
+      deckHint.textContent = `${total} tarjetas`;
+    }
+
+    function render(){
+      const c = current();
+      cardTotal.textContent = deck.length;
+      cardIndex.textContent = Math.min(index+1, deck.length);
+      chipMeta.textContent = `${c.period} · ${c.discipline}`;
+
+      artImg.src = c.src;
+      artImg.alt = c.title;
+
+      // Back = SOLO AUTOR
+      author.textContent = c.author;
+
+      setSide('front');
+      flipInner.style.setProperty('--ang', '0deg');
+      updateProgress();
+    }
+
+    // Flip sin espejo: 0 -> 90 (oculta), swap, -90 -> 0
+    function flipCard(){
+      if (isAnimatingFlip) return;
+      isAnimatingFlip = true;
+
+      // 1) Ir a canto
+      flipInner.style.setProperty('--ang', '90deg');
+
+      const onEnd = () => {
+        flipInner.removeEventListener('transitionend', onEnd);
+
+        // 2) Swap contenido en el canto
+        const nextSide = (getSide() === 'front') ? 'back' : 'front';
+        setSide(nextSide);
+
+        // 3) Saltar a -90 sin transicion
+        flipInner.classList.add('noTrans');
+        flipInner.style.setProperty('--ang', '-90deg');
+
+        // 4) Volver a 0 con transicion
+        requestAnimationFrame(() => {
+          flipInner.classList.remove('noTrans');
+          requestAnimationFrame(() => {
+            flipInner.style.setProperty('--ang', '0deg');
+            // Soltar lock al final del segundo tramo
+            setTimeout(() => { isAnimatingFlip = false; }, 240);
+          });
+        });
+      };
+
+      flipInner.addEventListener('transitionend', onEnd, { once: true });
+    }
+
+    function nextCard(){
+      index += 1;
+      if (index >= deck.length){
+        setSide('back');
+        author.textContent = '¡Mazo completado!';
+        chipMeta.textContent = '✅ Fin';
+        showToast('Fin del mazo');
+        return;
+      }
+      render();
+    }
+
+    function mark(isKnown){
+      if (index >= deck.length) return;
+
+      answered += 1;
+      if (isKnown) correct += 1;
+      else wrong += 1;
+
+      updateProgress();
+      showToast(isKnown ? 'Acierto' : 'Error');
+
+      nextCard();
+    }
+
+    function shuffle(){
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+      index = 0;
+      showToast('Barajado');
+      render();
+    }
+
+    function reset(){
+      deck = [...ORIGINAL_DECK];
+      index = 0;
+      correct = 0;
+      wrong = 0;
+      answered = 0;
+      showToast('Reiniciado');
+      render();
+    }
+
+    function toggleTheme(){
+      const root = document.documentElement;
+      const dark = root.getAttribute('data-theme') === 'dark';
+      if (dark){
+        root.removeAttribute('data-theme');
+        el('btnTheme').textContent = '🌙';
+        localStorage.setItem('ren_theme','light');
+      } else {
+        root.setAttribute('data-theme','dark');
+        el('btnTheme').textContent = '☀️';
+        localStorage.setItem('ren_theme','dark');
+      }
+    }
+
+    // Eventos
+    flip.addEventListener('click', flipCard);
+    flip.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flipCard(); }
+    });
+
+    el('btnKnow').addEventListener('click', () => mark(true));
+    el('btnNoKnow').addEventListener('click', () => mark(false));
+    el('btnShuffle').addEventListener('click', shuffle);
+    el('btnReset').addEventListener('click', reset);
+    el('btnTheme').addEventListener('click', toggleTheme);
+
+    // Tema persistente
+    (function initTheme(){
+      const t = localStorage.getItem('ren_theme');
+      if (t === 'dark'){
+        document.documentElement.setAttribute('data-theme','dark');
+        el('btnTheme').textContent = '☀️';
+      } else {
+        el('btnTheme').textContent = '🌙';
+      }
+    })();
+
+    render();
+  </script>
+</body>
+</html>
